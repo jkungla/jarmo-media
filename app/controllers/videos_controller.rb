@@ -11,24 +11,31 @@ class VideosController < ActionController::API
     end
 
     files = Dir.glob('/var/www/html/videos/*.mp4').select{ |e| File.file? e }
+    movie_ids = []
     files.each do |file|
-      nimi, year, qualy = parse_filename(File.basename(file, '.mp4'))
-      url = HOST + "api_key=3ecc82f64cc674208e8f2b1b5ea9a400" + "&include_adult=true&query=" + URI.encode(nimi)
-      url = url + "&year=" + year if year != ''
-      data = JSON.load(open(url))
-      p data
-      if data['total_results'] == 1
-        movie = data['results'][0]
-        new = Movie.create(title: movie['title'], year: year, quality: qualy, overview: movie['overview'], lang: movie['original_language'],
-                      url: URI.encode(File.basename(file)), poster: movie['poster_path'], db_popularity: movie['popularity'], db_vote_average: movie['vote_average'], db_id: movie['id'])
-        movie['genre_ids'].each do |genre_id|
-          genre = Genre.where(db_id: genre_id).first
-          if genre
-            MovieGenre.create(movie_id: new.id, genre_id: genre.id)
+      old = Movie.where(url: URI.encode(File.basename(file))).first
+      if old
+        movie_ids.push(old.id)
+      else
+        nimi, year, qualy = parse_filename(File.basename(file, '.mp4'))
+        url = HOST + "api_key=3ecc82f64cc674208e8f2b1b5ea9a400" + "&include_adult=true&query=" + URI.encode(nimi)
+        url = url + "&year=" + year if year != ''
+        data = JSON.load(open(url))
+        if data['total_results'] > 1
+          movie = data['results'][0]
+          new = Movie.create(title: movie['title'], year: year, quality: qualy, overview: movie['overview'], lang: movie['original_language'],
+                             url: URI.encode(File.basename(file)), poster: movie['poster_path'], db_popularity: movie['popularity'], db_vote_average: movie['vote_average'], db_id: movie['id'])
+          movie['genre_ids'].each do |genre_id|
+            genre = Genre.where(db_id: genre_id).first
+            if genre
+              MovieGenre.create(movie_id: new.id, genre_id: genre.id)
+            end
           end
+          movie_ids.push(old.id)
         end
       end
     end
+    Movie.where.not(id: movie_ids).delete_all
     render json: {}
   end
 
