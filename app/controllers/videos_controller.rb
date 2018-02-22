@@ -1,16 +1,16 @@
 require 'open-uri'
 class VideosController < ActionController::API
-  HOST = "https://api.themoviedb.org/3/search/movie?"
+  SEARCH_MOVIE_HOST = 'https://api.themoviedb.org/3/search/movie?'
+  SEARCH_GENRES_HOST = 'https://api.themoviedb.org/3/genre/movie/list?'
 
   def index
-    genres = JSON.load(open("https://api.themoviedb.org/3/genre/movie/list?api_key=3ecc82f64cc674208e8f2b1b5ea9a400&language=en-US"))
-    p genres
+    genres = JSON.load(open(SEARCH_GENRES_HOST + 'api_key=' + Setting['movie_api_key'] + '&language=en-US'))
     Genre.delete_all
     genres['genres'].each do |genre|
       Genre.create(name: genre['name'], db_id: genre['id'])
     end
 
-    files = Dir.glob('/var/www/html/videos/*.mp4').select{ |e| File.file? e }
+    files = Dir.glob(Setting['movie_dir_mp4']).select{ |e| File.file? e }
     movie_ids = []
     files.each do |file|
       old = Movie.where(url: URI.encode(File.basename(file))).first
@@ -18,8 +18,8 @@ class VideosController < ActionController::API
         movie_ids.push(old.id)
       else
         nimi, year, qualy = parse_filename(File.basename(file, '.mp4'))
-        url = HOST + "api_key=3ecc82f64cc674208e8f2b1b5ea9a400" + "&include_adult=true&query=" + URI.encode(nimi)
-        url = url + "&year=" + year if year != ''
+        url = SEARCH_MOVIE_HOST + 'api_key=' + Setting['movie_api_key'] + '&include_adult=true&query=' + URI.encode(nimi)
+        url = url + '&year=' + year if year != ''
         data = JSON.load(open(url))
         if data['total_results'] > 1
           movie = data['results'][0]
@@ -41,7 +41,7 @@ class VideosController < ActionController::API
 
   def show
     filename = Rails.root.join('videos', params[:id] + '.mp4')
-    send_file filename, type: "video/mp4", disposition: "inline", range: true
+    send_file filename, type: 'video/mp4', disposition: 'inline', range: true
   end
 
   private

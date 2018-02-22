@@ -6,7 +6,7 @@ class GenresController < ApplicationController
   end
 
   def show
-    genres = Genre.find(params[:id])
-    render json: genres
+    genre = Genre.find(params[:id])
+    render json: genre
   end
 end
